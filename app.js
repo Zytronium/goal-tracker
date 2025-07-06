@@ -28,12 +28,11 @@ const addBtn = document.getElementById("add-goal-btn");
 const cancelBtn = document.getElementById("cancel-edit-btn");
 const formErr = document.getElementById("form-error");
 
-// Progress goals editing form elements
+// Progress goals editor elements
 const pgDate = document.createElement("input");
-pgDate.type = "datetime-local";
+pgDate.type = "date"; // date only, no time
 pgDate.className = "form-control";
 pgDate.id = "pg-date";
-pgDate.placeholder = "Target date/time";
 
 const pgTarget = document.createElement("input");
 pgTarget.type = "number";
@@ -111,18 +110,50 @@ pgAddBtn.onclick = (e) => {
   pgTarget.value = "";
 };
 
+function parseLocalDate(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day); // Month is 0-based
+}
+
 function renderProgressGoalsList() {
   pgList.innerHTML = "";
   progressGoalsData.forEach((pg, i) => {
     const div = document.createElement("div");
-    div.className = "d-flex justify-content-between align-items-center mb-1";
-    div.innerHTML = `
-      <span>${new Date(pg.date).toLocaleString()} — Target: ${pg.target}%</span>
-      <button class="btn btn-sm btn-outline-danger" onclick="removeProgressGoal(${i})">🗑️</button>
-    `;
+    div.className = "d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2";
+
+    // Editable date input
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.className = "form-control";
+    dateInput.value = pg.date;
+    dateInput.onchange = (e) => {
+      progressGoalsData[i].date = e.target.value;
+    };
+
+    // Editable target %
+    const targetInput = document.createElement("input");
+    targetInput.type = "number";
+    targetInput.min = 0;
+    targetInput.max = 100;
+    targetInput.className = "form-control";
+    targetInput.value = pg.target;
+    targetInput.onchange = (e) => {
+      progressGoalsData[i].target = parseInt(e.target.value);
+    };
+
+    // Delete button
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-sm btn-outline-danger";
+    deleteBtn.innerHTML = "🗑️";
+    deleteBtn.onclick = () => removeProgressGoal(i);
+
+    div.appendChild(dateInput);
+    div.appendChild(targetInput);
+    div.appendChild(deleteBtn);
     pgList.appendChild(div);
   });
 }
+
 
 window.removeProgressGoal = (index) => {
   progressGoalsData.splice(index, 1);
@@ -190,43 +221,67 @@ function renderGoals(allGoals) {
   });
 }
 
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
 function renderProgressGoalsView(progressGoals = [], currentProgress = 0) {
   if (!Array.isArray(progressGoals) || progressGoals.length === 0) return "";
 
   // Sort ascending by date
-  progressGoals = progressGoals.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+  const sorted = progressGoals.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  let html = '<blockquote><h3>Progress Goals:</h3><p>';
+  let html = '<blockquote class="progress-goals"><h5>Progress Goals:</h5><p>';
 
-  progressGoals.forEach((pg, i) => {
-    const dateFormatted = formatDate(pg.date);
-    let style = "color: lightgray";
-    let tagOpen = "<em>";
-    let tagClose = "</em>";
+  sorted.forEach((pg, i) => {
+    const pgDate = parseLocalDate(pg.date);
+    pgDate.setHours(0, 0, 0, 0);
 
-    if (currentProgress >= pg.target) {
-      style = "color: lightgreen";
-      tagOpen = "<span>";
-      tagClose = "</span>";
-      if (currentProgress === pg.target) {
-        tagOpen = "<strong style='color:palegoldenrod'>";
-        tagClose = "</strong>";
+    const dateStr = pgDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const roundedCurrent = Math.floor(currentProgress);
+    const roundedTarget = Math.floor(pg.target);
+    let checkmark = "", style = "", tagOpen = "", tagClose = "";
+
+    const isToday = pgDate.getTime() === today.getTime();
+    const isPast = pgDate < today;
+    const isFuture = pgDate > today;
+    const isMet = roundedCurrent >= roundedTarget;
+
+    if (isToday) {
+      if (isMet) {
+        checkmark = "✓ ";
+        style = "color: lightgreen; font-weight: bold;";
+      } else {
+        style = "color: palegoldenrod; font-weight: bold;";
       }
-    } else if (currentProgress > 0 && currentProgress < pg.target) {
-      style = "color: #ff8383";
+      tagOpen = "<strong>";
+      tagClose = "</strong>";
+    } else if (isPast) {
+      if (isMet) {
+        checkmark = "✓ ";
+        style = "color: lightgreen;";
+      } else {
+        style = "color: #ff8383;";
+      }
       tagOpen = "<span>";
       tagClose = "</span>";
+    } else if (isFuture) {
+      if (isMet) {
+        checkmark = "✓ ";
+        style = "color: lightgreen; font-style: italic;";
+      } else {
+        style = "color: lightgray; font-style: italic;";
+      }
+      tagOpen = "<em>";
+      tagClose = "</em>";
     }
 
-    const checkmark = (currentProgress >= pg.target) ? "✓ " : "";
-
-    html += `${tagOpen}<span style="${style}">${checkmark}${dateFormatted}: ${pg.target}%</span>${tagClose}`;
-    if (i < progressGoals.length - 1) html += "<br>";
+    html += `${tagOpen}<span style="${style}">${checkmark}${escapeHTML(dateStr)}: ${pg.target}%</span>${tagClose}`;
+    if (i < sorted.length - 1) html += "<br>";
   });
 
   html += "</p></blockquote>";
@@ -274,7 +329,14 @@ function startEdit(id) {
     catIn.value = o.category;
     progIn.value = o.progress || 0;
     dueIn.value = o.dueBy ? o.dueBy.toDate().toISOString().split("T")[0] : "";
-    progressGoalsData = o.progressGoals || [];
+    progressGoalsData = (o.progressGoals || []).map(pg => {
+      // Normalize date string to yyyy-mm-dd for the date input
+      return {
+        date: pg.date.length > 10 ? pg.date.slice(0,10) : pg.date,
+        target: pg.target,
+        actual: pg.actual || 0
+      };
+    });
     renderProgressGoalsList();
     document.querySelector(".card").scrollIntoView({ behavior: "smooth" });
   });
@@ -290,6 +352,7 @@ function resetForm() {
   formErr.textContent = "";
   progressGoalsData = [];
   renderProgressGoalsList();
+  formErr.textContent = "";
 }
 
 function toggleComplete(id, status) {

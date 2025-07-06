@@ -113,3 +113,10 @@ a:visited {
 a:visited:active {
     color: #8965eb;
 }
+
+blockquote.progress-goals {
+    background: #202325;
+    border-left: 4px solid #6c757d;
+    padding: 1rem 1.25rem;
+    border-radius: 0.35rem;
+}
