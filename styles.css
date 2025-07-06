@@ -1,7 +1,7 @@
 :root {
     --bs-body-color: #dce8f5 !important;
-    --bs-body-bg: #1f2226 !important;
-    --bs-border-color: rgb(55, 55, 55) !important;
+    --bs-body-bg: #26292d !important;
+    --bs-border-color: rgb(65, 65, 65) !important;
 }
 
 input::placeholder,
@@ -10,7 +10,7 @@ textarea::placeholder {
 }
 
 .list-group-item {
-    background: #2c2f33;
+    background: #2a2d31;
     border: none;
     color: #eee;
 }
@@ -29,8 +29,29 @@ textarea::placeholder {
     color: #333;
 }
 
+.btn-outline-dim {
+    border-color: #878787;
+    color: #eee;
+}
+
+.btn-outline-dim:hover {
+    background: #1e2124;
+}
+
 .text-muted {
     color: #cccccc !important;
+}
+
+blockquote {
+    border-radius: 0.25rem;
+    background: hsla(218, 8%, 21%, 0.9);
+    border-left: dimgray 0.2rem solid;
+    margin: 0 0 1rem;
+    padding: 0.3rem 0.3rem 0.3rem 0.5rem;
+}
+
+blockquote p {
+    margin-bottom: 0;
 }
 
 /* EasyMDE dark mode overrides */
@@ -42,6 +63,12 @@ textarea::placeholder {
     background-color: var(--bs-body-bg) !important;
     color: var(--bs-body-color) !important;
     border-color: var(--bs-border-color) !important;
+    caret-color: white !important;
+
+}
+
+.CodeMirror-cursor {
+    border-left: 1px solid white !important;
 }
 
 .editor-toolbar button {

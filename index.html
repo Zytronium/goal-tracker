@@ -31,12 +31,12 @@
 
     <!-- Filters & Sorting -->
     <div class="d-flex mb-3 gap-2">
-      <select id="filter-select" class="form-select w-auto">
+      <select id="filter-select" class="form-select w-auto btn-outline-dim">
         <option value="all">All Statuses</option>
         <option value="in_progress">In Progress</option>
         <option value="completed">Completed</option>
       </select>
-      <select id="sort-select" class="form-select w-auto">
+      <select id="sort-select" class="form-select w-auto btn-outline-dim">
         <option value="updatedAt_desc">Newest First</option>
         <option value="updatedAt_asc">Oldest First</option>
         <option value="title_asc">Title A–Z</option>
@@ -55,6 +55,7 @@
       <textarea id="new-goal-desc" class="form-control mb-2" rows="2" placeholder="Description"></textarea>
       <input id="new-goal-category" class="form-control mb-2" placeholder="Category/Tag">
       <input id="new-goal-progress" type="number" min="0" max="100" class="form-control mb-2" placeholder="Progress (%)">
+      <h6>Complete By:</h6>
       <div class="d-flex gap-2">
         <button id="add-goal-btn" class="btn btn-success">Add Goal</button>
         <button id="cancel-edit-btn" class="btn btn-warning d-none">Cancel Edit</button>

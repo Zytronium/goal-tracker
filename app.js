@@ -28,8 +28,45 @@ const addBtn = document.getElementById("add-goal-btn");
 const cancelBtn = document.getElementById("cancel-edit-btn");
 const formErr = document.getElementById("form-error");
 
+// Progress goals editing form elements
+const pgDate = document.createElement("input");
+pgDate.type = "datetime-local";
+pgDate.className = "form-control";
+pgDate.id = "pg-date";
+pgDate.placeholder = "Target date/time";
+
+const pgTarget = document.createElement("input");
+pgTarget.type = "number";
+pgTarget.min = 0;
+pgTarget.max = 100;
+pgTarget.className = "form-control";
+pgTarget.id = "pg-target";
+pgTarget.placeholder = "Target %";
+
+const pgAddBtn = document.createElement("button");
+pgAddBtn.className = "btn btn-outline-light";
+pgAddBtn.textContent = "➕";
+
+const pgInputGroup = document.createElement("div");
+pgInputGroup.className = "input-group mb-3";
+pgInputGroup.appendChild(pgDate);
+pgInputGroup.appendChild(pgTarget);
+pgInputGroup.appendChild(pgAddBtn);
+
+const pgList = document.createElement("div");
+pgList.id = "progress-goals-list";
+pgList.className = "mb-3";
+
+const progressGoalsContainer = document.createElement("div");
+progressGoalsContainer.innerHTML = "<h6>Progress Goals</h6>";
+progressGoalsContainer.appendChild(pgList);
+progressGoalsContainer.appendChild(pgInputGroup);
+
+document.querySelector(".card").insertBefore(progressGoalsContainer, addBtn.parentNode);
+
 let editingId = null;
 let easyMDE;
+let progressGoalsData = [];
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -59,7 +96,38 @@ loginBtn.onclick = () => {
   auth.signInWithEmailAndPassword(emailIn.value, passIn.value)
     .catch(e => loginErr.textContent = e.message);
 };
+
 logoutBtn.onclick = () => auth.signOut();
+
+pgAddBtn.onclick = (e) => {
+  e.preventDefault();
+  const date = pgDate.value;
+  const target = parseInt(pgTarget.value);
+  if (!date || isNaN(target)) return;
+
+  progressGoalsData.push({ date, target, actual: 0 });
+  renderProgressGoalsList();
+  pgDate.value = "";
+  pgTarget.value = "";
+};
+
+function renderProgressGoalsList() {
+  pgList.innerHTML = "";
+  progressGoalsData.forEach((pg, i) => {
+    const div = document.createElement("div");
+    div.className = "d-flex justify-content-between align-items-center mb-1";
+    div.innerHTML = `
+      <span>${new Date(pg.date).toLocaleString()} — Target: ${pg.target}%</span>
+      <button class="btn btn-sm btn-outline-danger" onclick="removeProgressGoal(${i})">🗑️</button>
+    `;
+    pgList.appendChild(div);
+  });
+}
+
+window.removeProgressGoal = (index) => {
+  progressGoalsData.splice(index, 1);
+  renderProgressGoalsList();
+};
 
 function listenGoals() {
   loadingEl.style.display = "block";
@@ -97,6 +165,7 @@ function renderGoals(allGoals) {
     const dueDate = g.dueBy?.toDate().toLocaleDateString() || "N/A";
     const updatedAt = g.updatedAt?.toDate().toLocaleString() || "N/A";
     const completedAt = g.completedAt?.toDate().toLocaleString() || null;
+    const progressGoalsHTML = renderProgressGoalsView(g.progressGoals, progress);
 
     div.innerHTML = `
       <div>
@@ -108,16 +177,60 @@ function renderGoals(allGoals) {
         <small>Due: ${dueDate}</small><br>
         <small>Updated: ${updatedAt}</small><br>
         ${completedAt ? `<small>Completed: ${completedAt}</small><br>` : ""}
+        ${progressGoalsHTML}
       </div>
       <div class="btn-group mt-2">
-        <button class="btn btn-sm btn-outline-dark text-light" onclick="startEdit('${g.id}')">✏️</button>
-        <button class="btn btn-sm btn-outline-dark text-light" onclick="toggleComplete('${g.id}', '${g.status}')">
+        <button class="btn btn-sm btn-outline-light" onclick="startEdit('${g.id}')">✏️</button>
+        <button class="btn btn-sm btn-outline-light" onclick="toggleComplete('${g.id}', '${g.status}')">
           ${g.status === "completed" ? "↺" : "✅"}
         </button>
-        <button class="btn btn-sm btn-outline-dark text-light" onclick="deleteGoal('${g.id}')">🗑️</button>
+        <button class="btn btn-sm btn-outline-light" onclick="deleteGoal('${g.id}')">🗑️</button>
       </div>`;
     goalList.appendChild(div);
   });
+}
+
+function renderProgressGoalsView(progressGoals = [], currentProgress = 0) {
+  if (!Array.isArray(progressGoals) || progressGoals.length === 0) return "";
+
+  // Sort ascending by date
+  progressGoals = progressGoals.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  };
+
+  let html = '<blockquote><h3>Progress Goals:</h3><p>';
+
+  progressGoals.forEach((pg, i) => {
+    const dateFormatted = formatDate(pg.date);
+    let style = "color: lightgray";
+    let tagOpen = "<em>";
+    let tagClose = "</em>";
+
+    if (currentProgress >= pg.target) {
+      style = "color: lightgreen";
+      tagOpen = "<span>";
+      tagClose = "</span>";
+      if (currentProgress === pg.target) {
+        tagOpen = "<strong style='color:palegoldenrod'>";
+        tagClose = "</strong>";
+      }
+    } else if (currentProgress > 0 && currentProgress < pg.target) {
+      style = "color: #ff8383";
+      tagOpen = "<span>";
+      tagClose = "</span>";
+    }
+
+    const checkmark = (currentProgress >= pg.target) ? "✓ " : "";
+
+    html += `${tagOpen}<span style="${style}">${checkmark}${dateFormatted}: ${pg.target}%</span>${tagClose}`;
+    if (i < progressGoals.length - 1) html += "<br>";
+  });
+
+  html += "</p></blockquote>";
+  return html;
 }
 
 function escapeHTML(s) {
@@ -136,7 +249,8 @@ addBtn.onclick = () => {
     progress: parseInt(progIn.value) || 0,
     dueBy: dueIn.value ? firebase.firestore.Timestamp.fromDate(new Date(dueIn.value)) : null,
     status: "in_progress",
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    progressGoals: [...progressGoalsData]
   };
 
   let action = editingId
@@ -160,6 +274,8 @@ function startEdit(id) {
     catIn.value = o.category;
     progIn.value = o.progress || 0;
     dueIn.value = o.dueBy ? o.dueBy.toDate().toISOString().split("T")[0] : "";
+    progressGoalsData = o.progressGoals || [];
+    renderProgressGoalsList();
     document.querySelector(".card").scrollIntoView({ behavior: "smooth" });
   });
 }
@@ -172,6 +288,8 @@ function resetForm() {
   titleIn.value = catIn.value = progIn.value = dueIn.value = "";
   easyMDE.value("");
   formErr.textContent = "";
+  progressGoalsData = [];
+  renderProgressGoalsList();
 }
 
 function toggleComplete(id, status) {
